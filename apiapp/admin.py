@@ -5,3 +5,5 @@ from apiapp.models import *
 
 admin.site.register(WebsiteList)
 admin.site.register(ReviewsAndRatting)
+admin.site.register(CurrencyList)
+admin.site.register(CurrentRate)
