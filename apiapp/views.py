@@ -2,7 +2,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from apiapp.models import *
 import json
-
+import requests
 
 def home(request):
     # Your JSON data
@@ -146,7 +146,7 @@ def current_rate(request):
         source_to_usd = 1 / rate_source_to_common.value
         source_to_target = source_to_usd * rate_common_to_target.value
 
-        return JsonResponse({'rate':source_to_target,'amount': source_to_target*amount}, status=200)
+        return JsonResponse({'source':source_currency.name,'target':target_currency.name,'rate':source_to_target,'amount': source_to_target*amount}, status=200)
     except CurrencyList.DoesNotExist:
         return JsonResponse({'error': f"Currency not found"}, status=400)
     except CurrentRate.DoesNotExist:
@@ -154,18 +154,47 @@ def current_rate(request):
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
     
+def getcompare(sc,tc,sa,mmr):
+    source_currency = sc
+    target_currency = tc
+    send_amount = sa
+    mid_market_rate = mmr
 
-        # rate_source_to_usd = CurrentRate.objects.get(source__code='USD', target__code=to_currency)
-        # print(rate_source_to_usd)
-        # # Calculate the converted amount
-        # converted_amount = float(amount) * rate_source_to_usd.value
-        # print(converted_amount)
-        # amount_in_usd = source_amount / rate_source_to_usd.value
-        
-        # # Convert from USD to target currency
-        # rate_usd_to_target = CurrentRate.objects.get(source__code='USD', target__code=target_currency_code)
-        # converted_amount = amount_in_usd * rate_usd_to_target.value
-        # print(converted_amount)
-        return JsonResponse({'from': from_currency, 'to': to_currency}, status=200)
+    url = f"https://api.wise.com/v3/comparisons?sourceCurrency={source_currency}&targetCurrency={target_currency}&sendAmount={send_amount}&midMarketRate={mid_market_rate}"
+    response = requests.get(url)
+
+    if response.status_code == 200:
+        return response.json()  # Return the JSON response as a Python dictionary
+    else:
+        return None
+
+
+def c_compare(request):
+    try:
+        allowedweb_names = [obj.name for obj in WebsiteList.objects.all()]
+        print(allowedweb_names)
+        from_currency = request.GET.get('from')
+        to_currency   = request.GET.get('to')
+        currency   = request.GET.get('c')
+        amount        = float(request.GET.get('value', 0))   
+        rate          = float(request.GET.get('value', 0))   
+
+
+        if from_currency == currency:
+            api_response = getcompare(from_currency, to_currency, amount, rate)
+            # allowedweb_names = ['wise', 'xe', 'remitly', 'ofx', 'revolut', 'paypal']
+            api_provider_names = [provider['name'].lower() for provider in api_response['providers']]
+            allowedweb_names_lower = [name.lower() for name in allowedweb_names]
+            filtered_providers = [provider for provider in api_response["providers"] if provider.get('name').lower() in allowedweb_names_lower]
+
+            # Print the filtered providers
+            # print("Filtered providers:", filtered_providers)
+
+            for i in filtered_providers:
+                print(i.get("name"),i.get("quotes")[0]["rate"],i.get("receivedAmount"),i.get("markup"))
+            return JsonResponse({'success': '2', },status=400)   
+        else:
+            pass
+        return JsonResponse({'success': '1', },status=400)    
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=400)
+            return JsonResponse({'error': str(e)}, status=400)    
