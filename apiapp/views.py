@@ -167,34 +167,88 @@ def getcompare(sc,tc,sa,mmr):
         return response.json()  # Return the JSON response as a Python dictionary
     else:
         return None
+    
 
+def parse_duration_to_days(duration_str):
+    total_hours=duration_str.split('.')[0].split('H')[0].split('PT')[1]
+    days = int(int(total_hours) / 24)
+    if days <= 1:
+        return 0
+    else:
+        return days
+    
+
+# Combined function to format duration
+def format_duration(duration):
+    if duration:
+        # print(duration['min'].split(".")[0])
+        min_duration = parse_duration_to_days(duration['min'])
+        max_duration = parse_duration_to_days(duration['max'])
+        return f"{min_duration}-{max_duration} Days"
+    else:
+        return "Not provided"
+    
 
 def c_compare(request):
     try:
         allowedweb_names = [obj.name for obj in WebsiteList.objects.all()]
-        print(allowedweb_names)
+        # print(allowedweb_names)
         from_currency = request.GET.get('from')
         to_currency   = request.GET.get('to')
         currency   = request.GET.get('c')
         amount        = float(request.GET.get('value', 0))   
         rate          = float(request.GET.get('value', 0))   
 
+        symbol="USD",
+        if currency==from_currency:
+            symbol=from_currency
+        else:    
+            symbol=from_currency
 
-        if from_currency == currency:
-            api_response = getcompare(from_currency, to_currency, amount, rate)
+        api_response = getcompare(from_currency, to_currency, amount, rate)
             # allowedweb_names = ['wise', 'xe', 'remitly', 'ofx', 'revolut', 'paypal']
-            api_provider_names = [provider['name'].lower() for provider in api_response['providers']]
-            allowedweb_names_lower = [name.lower() for name in allowedweb_names]
-            filtered_providers = [provider for provider in api_response["providers"] if provider.get('name').lower() in allowedweb_names_lower]
-
-            # Print the filtered providers
-            # print("Filtered providers:", filtered_providers)
-
-            for i in filtered_providers:
-                print(i.get("name"),i.get("quotes")[0]["rate"],i.get("receivedAmount"),i.get("markup"))
-            return JsonResponse({'success': '2', },status=400)   
-        else:
-            pass
-        return JsonResponse({'success': '1', },status=400)    
+        api_provider_names = [provider['name'].lower() for provider in api_response['providers']]
+        allowedweb_names_lower = [name.lower() for name in allowedweb_names]
+        filtered_providers = [provider for provider in api_response["providers"] if provider.get('name').lower() in allowedweb_names_lower]
+        # print(allowedweb_names_lower)
+        
+        # Print the filtered providers
+        # print("Filtered providers:", filtered_providers)
+        data=[]
+        for i in filtered_providers:
+            # print(i.get("quotes"))
+            name =i.get("name")
+            fee =i.get("quotes")[0]["fee"]
+            receivedAmount =i.get("quotes")[0]["receivedAmount"]
+            rate=i.get("quotes")[0]["rate"]
+            duration = format_duration(i.get("quotes")[0]['deliveryEstimation']['duration'])
+            obj = WebsiteList.objects.get(name=name.lower())
+            listdata={
+                'name':obj.name,
+                'fullname':obj.fullname,
+                'title':obj.title,
+                'logo':obj.logo.url,
+                'max':obj.max,      
+                'min':obj.min, 
+                'sendby':obj.sendby,    
+                'receiveby':obj.receiveby,      
+                'receiveby':obj.receiveby,
+                'security':obj.security,
+                'support':obj.support,
+                'offer':obj.offer,
+                'sendmoneyprocess':obj.sendmoneyprocess,
+                'fullreviewlink':obj.fullreviewlink,
+                'reviews':ReviewsAndRatting.objects.get(name=obj).reviews,
+                'ratting':ReviewsAndRatting.objects.get(name=obj).rating,
+                'rate':rate,
+                'fees':fee,
+                'duration':duration,
+                'receivedAmount':receivedAmount,
+                'symbol':symbol
+            }
+            data.append(listdata)
+            # print(listdata)
+            # print(name,fee,receivedAmount,rate,duration)
+        return JsonResponse({'success': data, },status=200)   
     except Exception as e:
             return JsonResponse({'error': str(e)}, status=400)    
