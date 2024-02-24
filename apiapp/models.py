@@ -56,6 +56,7 @@ class ReviewsAndRatting(models.Model):
     name=models.ForeignKey(WebsiteList,on_delete=models.CASCADE)
     reviews=models.CharField(max_length=100,blank=False)
     rating=models.CharField(max_length=100,blank=False)
+    url=models.CharField(max_length=100,blank=True,default="")
     datetime=models.CharField(max_length=100,blank=False)
 
 

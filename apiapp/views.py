@@ -112,10 +112,11 @@ def insert_reviews_data(request):
                             # If no reviews exist, create a new one
                             reviews = ReviewsAndRatting(name=website)
                             print("Created ReviewsAndRatting for:", name)
-
+                        # print(item.get("Url"))
                         # Update reviews and rating here if needed
                         reviews.reviews = item.get("Reviews")
                         reviews.rating = item.get("Rating")
+                        reviews.url = 'https://www.trustpilot.com/review/'+item.get("Url")
                         reviews.datetime = item.get("DateTime")
                         reviews.save()
                     else:
@@ -170,7 +171,9 @@ def getcompare(sc,tc,sa,mmr):
     
 
 def parse_duration_to_days(duration_str):
-    total_hours=duration_str.split('.')[0].split('H')[0].split('PT')[1]
+    print(duration_str)
+    total_hours=duration_str.split('.')[0].split('H')[0].split('S')[0].split('PT')[1]
+    print(total_hours)
     days = int(int(total_hours) / 24)
     if days <= 1:
         return 0
@@ -186,69 +189,139 @@ def format_duration(duration):
         max_duration = parse_duration_to_days(duration['max'])
         return f"{min_duration}-{max_duration} Days"
     else:
-        return "Not provided"
+        return "0-0 Days"
     
 
 def c_compare(request):
-    try:
-        allowedweb_names = [obj.name for obj in WebsiteList.objects.all()]
+    allowedweb_names = [obj.name for obj in WebsiteList.objects.all()]
         # print(allowedweb_names)
-        from_currency = request.GET.get('from')
-        to_currency   = request.GET.get('to')
-        currency   = request.GET.get('c')
-        amount        = float(request.GET.get('value', 0))   
-        rate          = float(request.GET.get('value', 0))   
+    from_currency = request.GET.get('from')
+    to_currency   = request.GET.get('to')
+    currency   = request.GET.get('c')
+    amount        = float(request.GET.get('value', 0))   
+    rate          = float(request.GET.get('rate', 0))   
+    
+    symbol="USD",
+    if currency==from_currency:
+        symbol=from_currency
+    else:    
+        symbol=from_currency
+    api_response = getcompare(from_currency, to_currency, amount, rate)
+        # allowedweb_names = ['wise', 'xe', 'remitly', 'ofx', 'revolut', 'paypal']
+    api_provider_names = [provider['name'].lower() for provider in api_response['providers']]
+    allowedweb_names_lower = [name.lower() for name in allowedweb_names]
+    filtered_providers = [provider for provider in api_response["providers"] if provider.get('name').lower() in allowedweb_names_lower]
+    # print(allowedweb_names_lower)
+    # print("tutul=",api_response)
+    # Print the filtered providers
+    # print("Filtered providers:", filtered_providers)
+    data=[]
+    for i in filtered_providers:
+        # print(i.get("quotes"))
+        name =i.get("name")
+        fee =i.get("quotes")[0]["fee"]
+        receivedAmount =i.get("quotes")[0]["receivedAmount"]
+        rate=i.get("quotes")[0]["rate"]
+        duration = format_duration(i.get("quotes")[0]['deliveryEstimation']['duration'])
+        obj = WebsiteList.objects.get(name=name.lower())
+        # print(name,fee,receivedAmount,rate,duration,obj)
+        domain_url = request.build_absolute_uri('/')
+        # print(name.lower())
+        listdata={
+            'name':obj.name,
+            'fullname':obj.fullname,
+            'title':obj.title,
+            'logo':domain_url+obj.logo.url,
+            'max':obj.max,      
+            'min':obj.min, 
+            'sendby':obj.sendby,    
+            'receiveby':obj.receiveby,      
+            'receiveby':obj.receiveby,
+            'security':obj.security,
+            'support':obj.support,
+            'offer':obj.offer,
+            'sendmoneyprocess':obj.sendmoneyprocess,
+            'fullreviewlink':obj.fullreviewlink,
+            'reviews':ReviewsAndRatting.objects.get(name=obj).reviews,
+            'ratting':ReviewsAndRatting.objects.get(name=obj).rating,
+            'reviewurl':ReviewsAndRatting.objects.get(name=obj).url,
+            'rate':'{:.4f}'.format(rate),
+            'fees':fee,
+            'duration':duration,
+            'receivedAmount':receivedAmount,
+            'symbol':symbol
+        }
+        # print(listdata)
+       
+        data.append(listdata)
+        # print(name,fee,receivedAmount,rate,duration)
+    # print(data)    
+    sorted_data = sorted(data, key=lambda x: x['rate'], reverse=True)
 
-        symbol="USD",
-        if currency==from_currency:
-            symbol=from_currency
-        else:    
-            symbol=from_currency
-
-        api_response = getcompare(from_currency, to_currency, amount, rate)
-            # allowedweb_names = ['wise', 'xe', 'remitly', 'ofx', 'revolut', 'paypal']
-        api_provider_names = [provider['name'].lower() for provider in api_response['providers']]
-        allowedweb_names_lower = [name.lower() for name in allowedweb_names]
-        filtered_providers = [provider for provider in api_response["providers"] if provider.get('name').lower() in allowedweb_names_lower]
-        # print(allowedweb_names_lower)
+    return JsonResponse({'data': sorted_data, },status=200) 
+    # try:
+    #     allowedweb_names = [obj.name for obj in WebsiteList.objects.all()]
+    #     # print(allowedweb_names)
+    #     from_currency = request.GET.get('from')
+    #     to_currency   = request.GET.get('to')
+    #     currency   = request.GET.get('c')
+    #     amount        = float(request.GET.get('value', 0))   
+    #     rate          = float(request.GET.get('rate', 0))   
         
-        # Print the filtered providers
-        # print("Filtered providers:", filtered_providers)
-        data=[]
-        for i in filtered_providers:
-            # print(i.get("quotes"))
-            name =i.get("name")
-            fee =i.get("quotes")[0]["fee"]
-            receivedAmount =i.get("quotes")[0]["receivedAmount"]
-            rate=i.get("quotes")[0]["rate"]
-            duration = format_duration(i.get("quotes")[0]['deliveryEstimation']['duration'])
-            obj = WebsiteList.objects.get(name=name.lower())
-            listdata={
-                'name':obj.name,
-                'fullname':obj.fullname,
-                'title':obj.title,
-                'logo':obj.logo.url,
-                'max':obj.max,      
-                'min':obj.min, 
-                'sendby':obj.sendby,    
-                'receiveby':obj.receiveby,      
-                'receiveby':obj.receiveby,
-                'security':obj.security,
-                'support':obj.support,
-                'offer':obj.offer,
-                'sendmoneyprocess':obj.sendmoneyprocess,
-                'fullreviewlink':obj.fullreviewlink,
-                'reviews':ReviewsAndRatting.objects.get(name=obj).reviews,
-                'ratting':ReviewsAndRatting.objects.get(name=obj).rating,
-                'rate':rate,
-                'fees':fee,
-                'duration':duration,
-                'receivedAmount':receivedAmount,
-                'symbol':symbol
-            }
-            data.append(listdata)
-            # print(listdata)
-            # print(name,fee,receivedAmount,rate,duration)
-        return JsonResponse({'success': data, },status=200)   
-    except Exception as e:
-            return JsonResponse({'error': str(e)}, status=400)    
+    #     symbol="USD",
+    #     if currency==from_currency:
+    #         symbol=from_currency
+    #     else:    
+    #         symbol=from_currency
+
+    #     api_response = getcompare(from_currency, to_currency, amount, rate)
+    #         # allowedweb_names = ['wise', 'xe', 'remitly', 'ofx', 'revolut', 'paypal']
+    #     api_provider_names = [provider['name'].lower() for provider in api_response['providers']]
+    #     allowedweb_names_lower = [name.lower() for name in allowedweb_names]
+    #     filtered_providers = [provider for provider in api_response["providers"] if provider.get('name').lower() in allowedweb_names_lower]
+    #     # print(allowedweb_names_lower)
+    #     # print("tutul=",api_response)
+    #     # Print the filtered providers
+    #     # print("Filtered providers:", filtered_providers)
+    #     data=[]
+    #     for i in filtered_providers:
+    #         # print(i.get("quotes"))
+    #         name =i.get("name")
+    #         fee =i.get("quotes")[0]["fee"]
+    #         receivedAmount =i.get("quotes")[0]["receivedAmount"]
+    #         rate=i.get("quotes")[0]["rate"]
+    #         duration = format_duration(i.get("quotes")[0]['deliveryEstimation']['duration'])
+    #         obj = WebsiteList.objects.get(name=name.lower())
+    #         # print(name,fee,receivedAmount,rate,duration,obj)
+    #         print(name.lower())
+    #         listdata={
+    #             'name':obj.name,
+    #             'fullname':obj.fullname,
+    #             'title':obj.title,
+    #             'logo':obj.logo.url,
+    #             'max':obj.max,      
+    #             'min':obj.min, 
+    #             'sendby':obj.sendby,    
+    #             'receiveby':obj.receiveby,      
+    #             'receiveby':obj.receiveby,
+    #             'security':obj.security,
+    #             'support':obj.support,
+    #             'offer':obj.offer,
+    #             'sendmoneyprocess':obj.sendmoneyprocess,
+    #             'fullreviewlink':obj.fullreviewlink,
+    #             'reviews':ReviewsAndRatting.objects.get(name=obj).reviews,
+    #             'ratting':ReviewsAndRatting.objects.get(name=obj).rating,
+    #             'rate':rate,
+    #             'fees':fee,
+    #             'duration':duration,
+    #             'receivedAmount':receivedAmount,
+    #             'symbol':symbol
+    #         }
+    #         # print(listdata)
+           
+    #         data.append(listdata)
+    #         # print(name,fee,receivedAmount,rate,duration)
+    #     # print(data)    
+    #     return JsonResponse({'data': data, },status=200)   
+    # except Exception as e:
+    #         return JsonResponse({'error': str(e)}, status=400)    
