@@ -147,7 +147,35 @@ def current_rate(request):
         source_to_usd = 1 / rate_source_to_common.value
         source_to_target = source_to_usd * rate_common_to_target.value
 
-        return JsonResponse({'source':source_currency.name,'target':target_currency.name,'rate':source_to_target,'amount': source_to_target*amount}, status=200)
+        allowedweb_names = [obj.name for obj in WebsiteList.objects.all()]
+        
+        data=[]
+        for i in allowedweb_names:
+            obj = WebsiteList.objects.get(name=i.lower())
+            domain_url = request.build_absolute_uri('/')
+            listdata={
+                'name':obj.name,
+                'fullname':obj.fullname,
+                'title':obj.title,
+                'logo':domain_url+obj.logo.url,
+                'max':obj.max,      
+                'min':obj.min, 
+                'sendby':obj.sendby,    
+                'receiveby':obj.receiveby,      
+                'receiveby':obj.receiveby,
+                'security':obj.security,
+                'support':obj.support,
+                'offer':obj.offer,
+                'sendmoneyprocess':obj.sendmoneyprocess,
+                'fullreviewlink':obj.fullreviewlink,
+                'reviews':ReviewsAndRatting.objects.get(name=obj).reviews,
+                'ratting':ReviewsAndRatting.objects.get(name=obj).rating,
+                'reviewurl':ReviewsAndRatting.objects.get(name=obj).url,
+                'sendurl':obj.sendUrl
+            }
+            data.append(listdata)    
+
+        return JsonResponse({'source':source_currency.name,'target':target_currency.name,'rate':source_to_target,'amount': source_to_target*amount,'data':data}, status=200)
     except CurrencyList.DoesNotExist:
         return JsonResponse({'error': f"Currency not found"}, status=400)
     except CurrentRate.DoesNotExist:
@@ -325,3 +353,41 @@ def c_compare(request):
     #     return JsonResponse({'data': data, },status=200)   
     # except Exception as e:
     #         return JsonResponse({'error': str(e)}, status=400)    
+
+
+
+
+
+
+
+
+def cc_compare(request):
+    allowedweb_names = [obj.name for obj in WebsiteList.objects.all()]
+    
+    data=[]
+    for i in allowedweb_names:
+        obj = WebsiteList.objects.get(name=i.lower())
+        domain_url = request.build_absolute_uri('/')
+        listdata={
+            'name':obj.name,
+            'fullname':obj.fullname,
+            'title':obj.title,
+            'logo':domain_url+obj.logo.url,
+            'max':obj.max,      
+            'min':obj.min, 
+            'sendby':obj.sendby,    
+            'receiveby':obj.receiveby,      
+            'receiveby':obj.receiveby,
+            'security':obj.security,
+            'support':obj.support,
+            'offer':obj.offer,
+            'sendmoneyprocess':obj.sendmoneyprocess,
+            'fullreviewlink':obj.fullreviewlink,
+            'reviews':ReviewsAndRatting.objects.get(name=obj).reviews,
+            'ratting':ReviewsAndRatting.objects.get(name=obj).rating,
+            'reviewurl':ReviewsAndRatting.objects.get(name=obj).url,
+            
+        }
+        data.append(listdata)    
+
+    return JsonResponse({'data': data, },status=200) 

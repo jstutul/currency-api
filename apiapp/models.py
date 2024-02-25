@@ -47,7 +47,7 @@ class WebsiteList(models.Model):
     offer=models.CharField(blank=False,max_length=1000)
     sendmoneyprocess=models.TextField(blank=False)
     fullreviewlink=models.CharField(blank=False,max_length=1000)
-
+    sendUrl=models.CharField(max_length=300,blank=True)
     def __str__(self):
         return self.name
     
